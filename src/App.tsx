@@ -68,10 +68,8 @@ export default function Home() {
   const [quantity, setQuantity] = useState(1);
   const [totalSupply, setTotalSupply] = useState(0);
   const [nextTokenId, setNextTokenId] = useState(0);
-  // const [invites, setInvites] = useState([]);
   const [newInvites, setNewInvites] = useState([]);
   const [collectionImg, setCollectionImg] = useState("");
-  //const [conditions, setConditions] = useState([]);
   const ipfsGateway = "https://ipfs.io/ipfs/";
   const [approved, setApproved] = useState([]);
 
@@ -165,6 +163,37 @@ export default function Home() {
   console.log("newInvites", newInvites);  
 
   //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
+  useEffect(() => {
+    if (address != null && newInvites != null) {
+      const checkApprovedInvites = async () => {
+        const updatedApproved = await Promise.all(newInvites.map(invite => {
+          // Extract the cid and key from each invite
+          const cid = invite.cid;
+          let approvedAddress = [];
+            if (cid == "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"){
+              approvedAddress.push(invite);
+            } else {
+              const checkInviteApproval = fetch(`${ipfsGateway}${cid}`).then((r) => r.json());
+              if (checkInviteApproval.approved.includes(address)) {
+                approvedAddress.push(invite);
+              }
+            }
+            setApproved(approvedAddress);
+          }));
+        };
+  
+      checkApprovedInvites();
+    } else {
+      toast({
+        title: "Login Required",
+        description: "Please Login to View Invites",
+        duration: 9000,
+        className: "bg-green-500",
+      });
+    }
+  }, [address, newInvites]);
+  
+ console.log("approved", approved);
  
   const claimConditions = useClaimConditions(contractQuery.contract);
   const activeClaimCondition = useActiveClaimConditionForWallet(
@@ -180,7 +209,7 @@ export default function Home() {
     },
   );
 
-  
+
   const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
   const { data: firstNft, isLoading: firstNftLoading } = useNFT(
