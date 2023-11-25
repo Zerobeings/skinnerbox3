@@ -9,12 +9,14 @@ import {
   useClaimIneligibilityReasons,
   useContract,
   useContractMetadata,
+  useContractEvents,
+  useContractRead,
   useNFT,
   useUnclaimedNFTSupply,
   Web3Button,
 } from "@thirdweb-dev/react";
 import { BigNumber, utils } from "ethers";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
 import { useToast } from "./components/ui/use-toast";
@@ -24,8 +26,11 @@ import {
   contractConst,
   primaryColorConst,
   themeConst,
-} from "./consts/parameters";
+} from "./consts/myParameters"; //change this parameters.ts when you want to deploy
 import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/core/classes/contract-wrapper";
+import { abi } from "./abi/abi.ts";
+import { CID } from 'multiformats/cid';
+import { create } from 'multiformats/hashes/digest';
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -45,7 +50,7 @@ const colors = {
 } as const;
 
 export default function Home() {
-  const contractQuery = useContract(contractAddress);
+  const contractQuery = useContract(contractAddress, abi);
   const contractMetadata = useContractMetadata(contractQuery.contract);
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
@@ -61,6 +66,106 @@ export default function Home() {
   root.classList.add(theme);
   const address = useAddress();
   const [quantity, setQuantity] = useState(1);
+  const [totalSupply, setTotalSupply] = useState(0);
+  const [nextTokenId, setNextTokenId] = useState(0);
+  // const [invites, setInvites] = useState([]);
+  const [newInvites, setNewInvites] = useState([]);
+  const [collectionImg, setCollectionImg] = useState("");
+  //const [conditions, setConditions] = useState([]);
+  const ipfsGateway = "https://ipfs.io/ipfs/";
+  const [approved, setApproved] = useState([]);
+
+  useEffect(() => {
+    if (!contractQuery.contract) return;
+
+    // Fetch total supply and image
+    contractQuery.contract.call("config").then(async (config) => {
+      setTotalSupply(BigNumber.from(config.supply).toString());
+    
+      // Convert IPFS URL to HTTP URL
+      const ipfsGateway = "https://ipfs.io/ipfs/";
+      const ipfsHash = config.placeholder.split("ipfs://")[1];
+      const jsonUrl = `${ipfsGateway}${ipfsHash}`;
+    
+      try {
+        // Fetch the JSON file from IPFS
+        const response = await fetch(jsonUrl);
+        const data = await response.json();
+    
+        // Set the IPFS image link from the JSON file
+        if (data && data.image) {
+          setCollectionImg(data.image); // This will be the IPFS link
+        }
+
+      } catch (error) {
+        console.error("Error fetching IPFS data:", error);
+      }
+    }).catch(console.error);
+
+    // Fetch next token ID
+    contractQuery.contract.call("nextId").then((id) => {
+      setNextTokenId(BigNumber.from(id).toString());
+    }).catch(console.error);
+
+  }, [contractQuery.contract, contractQuery]);
+
+  console.log("totalSupply", totalSupply);
+  console.log("nextTokenId", nextTokenId);
+
+  const invites = useContractEvents(
+    contractQuery.contract,
+    "Invited", // Event name being emitted by your smart contract
+  );
+  //console.table("invites", invites.data);
+  //invites[key].condition.converted.eth
+
+
+  useEffect(() => {
+    if (invites.data != null) {
+      const updateInvitesData = async () => {
+        const updatedInvites = await Promise.all(invites.data.map(invite => {
+          // Extract the cid and key from each invite
+          const cidHex = invite.data.cid;
+          const key = invite.data.key;
+
+          // Determine Condition
+          // const condition = useContractRead(contractQuery.contract, "invite", [key]);
+
+          const bytes = create(18, Uint8Array.from(Buffer.from(cidHex.slice(2), 'hex')));
+
+          const cid = CID.createV1(0x55, bytes);
+  
+          // Convert the cid to an IPFS URL
+          const ipfsUrl = cid.toString();
+          
+
+            // Fetch condition
+            try {
+              const condition = contractQuery.contract.call("invite", [key]);
+              
+              return {
+                key: key,
+                cid: ipfsUrl,
+                condition: condition,
+              };
+            } catch (error) {
+              console.error("Error fetching condition:", error);
+              return {
+                key: key,
+                cid: ipfsUrl,
+                condition: null,
+              };
+            }
+          }));
+
+      setNewInvites(updatedInvites);
+    };
+      updateInvitesData().catch(console.error);
+    }
+  }, [contractQuery.contract ,invites.data]); 
+  
+  console.log("newInvites", newInvites);  
+ 
   const claimConditions = useClaimConditions(contractQuery.contract);
   const activeClaimCondition = useActiveClaimConditionForWallet(
     contractQuery.contract,
@@ -74,22 +179,22 @@ export default function Home() {
       walletAddress: address || "",
     },
   );
-  const unclaimedSupply = useUnclaimedNFTSupply(contractQuery.contract);
-  const claimedSupply = useClaimedNFTSupply(contractQuery.contract);
+  const unclaimedSupply = totalSupply - nextTokenId - 1;
+  const claimedSupply = nextTokenId - 1;
   const { data: firstNft, isLoading: firstNftLoading } = useNFT(
     contractQuery.contract,
     0,
   );
 
   const numberClaimed = useMemo(() => {
-    return BigNumber.from(claimedSupply.data || 0).toString();
+    return BigNumber.from(claimedSupply || 0).toString();
   }, [claimedSupply]);
 
   const numberTotal = useMemo(() => {
-    return BigNumber.from(claimedSupply.data || 0)
-      .add(BigNumber.from(unclaimedSupply.data || 0))
+    return BigNumber.from(claimedSupply || 0)
+      .add(BigNumber.from(unclaimedSupply || 0))
       .toString();
-  }, [claimedSupply.data, unclaimedSupply.data]);
+  }, [claimedSupply, unclaimedSupply]);
 
   const priceToMint = useMemo(() => {
     const bnPrice = BigNumber.from(
@@ -308,7 +413,7 @@ export default function Home() {
       <div className="grid h-screen grid-cols-1 lg:grid-cols-12">
         <div className="items-center justify-center hidden w-full h-full lg:col-span-5 lg:flex lg:px-12">
           <HeadingImage
-            src={contractMetadata.data?.image || firstNft?.metadata.image || ""}
+            src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
             isLoading={isLoading}
           />
         </div>
@@ -316,7 +421,7 @@ export default function Home() {
           <div className="flex flex-col w-full max-w-xl gap-4 p-12 rounded-xl lg:border lg:border-gray-400 lg:dark:border-gray-800">
             <div className="flex w-full mt-8 xs:mb-8 xs:mt-0 lg:hidden">
               <HeadingImage
-                src={contractMetadata.data?.image || firstNft?.metadata.image || ""}
+                src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
                 isLoading={isLoading}
               />
             </div>
@@ -334,10 +439,10 @@ export default function Home() {
               ) : isOpenEdition ? null : (
                 <p>
                   <span className="text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
-                    {numberClaimed}
+                    {nextTokenId - 1}
                   </span>{" "}
                   <span className="text-lg font-bold tracking-wider xs:text-xl lg:text-2xl">
-                    / {numberTotal} minted
+                    / {totalSupply} minted
                   </span>
                 </p>
               )}
