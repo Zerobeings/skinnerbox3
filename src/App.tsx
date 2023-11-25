@@ -75,6 +75,7 @@ export default function Home() {
   const ipfsGateway = "https://ipfs.io/ipfs/";
   const [approved, setApproved] = useState([]);
 
+  //for factoria configuration fetch
   useEffect(() => {
     if (!contractQuery.contract) return;
 
@@ -117,9 +118,9 @@ export default function Home() {
     "Invited", // Event name being emitted by your smart contract
   );
   //console.table("invites", invites.data);
-  //invites[key].condition.converted.eth
 
 
+  //for factoria invite fetch
   useEffect(() => {
     if (invites.data != null) {
       const updateInvitesData = async () => {
@@ -127,9 +128,6 @@ export default function Home() {
           // Extract the cid and key from each invite
           const cidHex = invite.data.cid;
           const key = invite.data.key;
-
-          // Determine Condition
-          // const condition = useContractRead(contractQuery.contract, "invite", [key]);
 
           const bytes = create(18, Uint8Array.from(Buffer.from(cidHex.slice(2), 'hex')));
 
@@ -165,6 +163,8 @@ export default function Home() {
   }, [contractQuery.contract ,invites.data]); 
   
   console.log("newInvites", newInvites);  
+
+  //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
  
   const claimConditions = useClaimConditions(contractQuery.contract);
   const activeClaimCondition = useActiveClaimConditionForWallet(
@@ -179,6 +179,8 @@ export default function Home() {
       walletAddress: address || "",
     },
   );
+
+  
   const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
   const { data: firstNft, isLoading: firstNftLoading } = useNFT(
