@@ -23,7 +23,7 @@ import {
   themeConst,
 } from "./consts/parameters"; //change this parameters.ts when you want to deploy
 import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/core/classes/contract-wrapper";
-import { abi } from "./abi/abi.ts";
+import { abi } from "./abi/abi";
 import { CID } from 'multiformats/cid';
 import { create } from 'multiformats/hashes/digest';
 import { keccak256 } from 'ethers/lib/utils';
@@ -46,38 +46,50 @@ const colors = {
   yellow: "#FBBF24",
 } as const;
 
+interface Invite {
+  key: string;
+  cid: string;
+  condition: any;
+}
+
+interface ApprovedItem {
+  addresses: any | any[];
+  name: string;
+  cid: string;
+  key: any;
+  condition: any;
+  proof?: string[];
+}
+
+
 export default function Home() {
   const contractQuery = useContract(contractAddress, abi);
   const contractMetadata = useContractMetadata(contractQuery.contract);
   const { toast } = useToast();
   let theme = (urlParams.get("theme") || themeConst || "light") as
     | "light"
-    | "dark"
-    | "system";
-  if (theme === "system") {
-    theme = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  }
+    | "dark";
   const root = window.document.documentElement;
   root.classList.add(theme);
   const address = useAddress();
   const [quantity, setQuantity] = useState(1);
   const [totalSupply, setTotalSupply] = useState(0);
   const [nextTokenId, setNextTokenId] = useState(0);
-  const [newInvites, setNewInvites] = useState([]);
+  const [newInvites, setNewInvites] = useState<Invite[]>([]);
   const [collectionImg, setCollectionImg] = useState("");
   const ipfsGateway = "https://ipfs.io/ipfs/";
-  const [approved, setApproved] = useState([]);
+  const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
   useEffect(() => {
     if (!contractQuery.contract) return;
-
+  
     // Fetch total supply and image
-    contractQuery.contract.call("config").then(async (config) => {
-      setTotalSupply(BigNumber.from(config.supply).toString());
+    contractQuery.contract.call("config").then(async (configPromise) => {
+      const config = await configPromise; // Await the promise to get the actual config object
+  
+      setTotalSupply(BigNumber.from(config.supply).toNumber());
     
       // Convert IPFS URL to HTTP URL
       const ipfsGateway = "https://ipfs.io/ipfs/";
@@ -93,18 +105,18 @@ export default function Home() {
         if (data && data.image) {
           setCollectionImg(data.image); // This will be the IPFS link
         }
-
+  
       } catch (error) {
         console.error("Error fetching IPFS data:", error);
       }
     }).catch(console.error);
-
+  
     // Fetch next token ID
     contractQuery.contract.call("nextId").then((id) => {
-      setNextTokenId(BigNumber.from(id).toString());
+      setNextTokenId(BigNumber.from(id).toNumber());
     }).catch(console.error);
-
-  }, [contractQuery.contract, contractQuery]);
+  
+  }, [contractQuery.contract]);
 
   // console.log("totalSupply", totalSupply);
   // console.log("nextTokenId", nextTokenId);
@@ -130,13 +142,21 @@ export default function Home() {
   
           try {
             // Await the resolution of the condition promise
-            const condition = await contractQuery.contract.call("invite", [key]);
+            if ( contractQuery.contract !== undefined) {
+              const condition = await contractQuery.contract.call("invite", [key]);
             
-            return {
-              key: key,
-              cid: ipfsUrl,
-              condition: condition,
-            };
+              return {
+                key: key,
+                cid: ipfsUrl,
+                condition: condition,
+              };
+            } else {
+              return {
+                key: key,
+                cid: ipfsUrl,
+                condition: null,
+              };
+            }
           } catch (error) {
             console.error("Error fetching condition:", error);
             return {
@@ -213,7 +233,7 @@ export default function Home() {
       toast({
         title: "Login Required",
         description: "Please Login to View Invites",
-        duration: 9000,
+        duration: 3000,
         className: "bg-green-500",
       });
     }
@@ -309,19 +329,6 @@ export default function Home() {
     [approved],
   );
 
-  const dropStartingSoon = useMemo(
-    () =>
-      (approved &&
-        approved > 0) ||
-      (approved &&
-        approved.start > new Date()),
-    [
-      approved,
-      approved.start,
-    ],
-  );
-
-
   //thirdweb client id required
   const clientId = urlParams.get("clientId") || clientIdConst || "";
   if (!clientId) {
@@ -375,14 +382,14 @@ export default function Home() {
   ]);
 
   //mint function for each invite
-  const mint = async (key, proof, quantity, cost) => {
+  const mint = async (key:any, proof:any, quantity:any, cost:any) => {
     const auth = {
       "key": key,
       "proof": proof,
     };
     const count = BigNumber.from(quantity);
     console.log("Minting NFT");
-    if (quantity !== undefined) {
+    if (quantity !== undefined && contractQuery.contract !== undefined) {
       contractQuery.contract.call("mint", [auth, count]).then((result) => {
         console.log("Minted:", result);
           toast({
@@ -508,8 +515,8 @@ export default function Home() {
                         <button
                           onClick={() => {
                             const value = quantity - 1;
-                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
-                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            if (value > BigNumber.from(item.condition.limit._hex).toNumber()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toNumber());
                             } else if (value < 1) {
                               setQuantity(1);
                             } else {
@@ -527,8 +534,8 @@ export default function Home() {
                         <button
                           onClick={() => {
                             const value = quantity + 1;
-                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
-                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            if (value > BigNumber.from(item.condition.limit._hex).toNumber()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toNumber());
                             } else if (value < 1) {
                               setQuantity(1);
                             } else {
@@ -538,7 +545,7 @@ export default function Home() {
                           className={
                             "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
                           }
-                          disabled={isSoldOut || quantity + 1 > BigNumber.from(item.condition.limit._hex).toString()}
+                          disabled={isSoldOut || quantity + 1 > BigNumber.from(item.condition.limit._hex).toNumber()}
                         >
                           +
                         </button>
