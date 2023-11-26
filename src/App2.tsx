@@ -1,18 +1,12 @@
 import {
   ConnectWallet,
   detectContractFeature,
-  useActiveClaimConditionForWallet,
   useAddress,
-  useClaimConditions,
-  useClaimedNFTSupply,
-  useClaimerProofs,
-  useClaimIneligibilityReasons,
   useContract,
   useContractMetadata,
   useContractEvents,
   useContractRead,
   useNFT,
-  useUnclaimedNFTSupply,
   Web3Button,
 } from "@thirdweb-dev/react";
 import { BigNumber, utils } from "ethers";
@@ -115,12 +109,11 @@ export default function Home() {
   console.log("totalSupply", totalSupply);
   console.log("nextTokenId", nextTokenId);
 
+  // fetch invites from f0 contract
   const invites = useContractEvents(
     contractQuery.contract,
-    "Invited", // Event name being emitted by your smart contract
+    "Invited",
   );
-  //console.table("invites", invites.data);
-
 
   //for factoria invite fetch
   useEffect(() => {
@@ -254,27 +247,8 @@ export default function Home() {
 }, [approved, address]);
 
 
-  const claimConditions = useClaimConditions(contractQuery.contract);
-  const activeClaimCondition = useActiveClaimConditionForWallet(
-    contractQuery.contract,
-    address,
-  );
-  const claimerProofs = useClaimerProofs(contractQuery.contract, address || "");
-  const claimIneligibilityReasons = useClaimIneligibilityReasons(
-    contractQuery.contract,
-    {
-      quantity,
-      walletAddress: address || "",
-    },
-  );
-
-
   const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
-  const { data: firstNft, isLoading: firstNftLoading } = useNFT(
-    contractQuery.contract,
-    0,
-  );
 
   const numberClaimed = useMemo(() => {
     return BigNumber.from(claimedSupply || 0).toString();
@@ -286,200 +260,46 @@ export default function Home() {
       .toString();
   }, [claimedSupply, unclaimedSupply]);
 
-  const priceToMint = useMemo(() => {
-    const bnPrice = BigNumber.from(
-      activeClaimCondition.data?.currencyMetadata.value || 0,
-    );
-    return `${utils.formatUnits(
-      bnPrice.mul(quantity).toString(),
-      activeClaimCondition.data?.currencyMetadata.decimals || 18,
-    )} ${activeClaimCondition.data?.currencyMetadata.symbol}`;
-  }, [
-    activeClaimCondition.data?.currencyMetadata.decimals,
-    activeClaimCondition.data?.currencyMetadata.symbol,
-    activeClaimCondition.data?.currencyMetadata.value,
-    quantity,
-  ]);
-
-  const isOpenEdition = useMemo(() => {
-    if (contractQuery?.contract) {
-      const contractWrapper = (contractQuery.contract as any)
-        .contractWrapper as ContractWrapper<any>;
-
-      const featureDetected = detectContractFeature(
-        contractWrapper,
-        "ERC721SharedMetadata",
-      );
-
-      return featureDetected;
-    }
-    return false;
-  }, [contractQuery.contract]);
-
-  const maxClaimable = useMemo(() => {
-    let bnMaxClaimable;
-    try {
-      bnMaxClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimableSupply || 0,
-      );
-    } catch (e) {
-      bnMaxClaimable = BigNumber.from(1_000_000);
-    }
-
-    let perTransactionClaimable;
-    try {
-      perTransactionClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimablePerWallet || 0,
-      );
-    } catch (e) {
-      perTransactionClaimable = BigNumber.from(1_000_000);
-    }
-
-    if (perTransactionClaimable.lte(bnMaxClaimable)) {
-      bnMaxClaimable = perTransactionClaimable;
-    }
-
-    const snapshotClaimable = claimerProofs.data?.maxClaimable;
-
-    if (snapshotClaimable) {
-      if (snapshotClaimable === "0") {
-        // allowed unlimited for the snapshot
-        bnMaxClaimable = BigNumber.from(1_000_000);
-      } else {
-        try {
-          bnMaxClaimable = BigNumber.from(snapshotClaimable);
-        } catch (e) {
-          // fall back to default case
-        }
-      }
-    }
-
-    const maxAvailable = BigNumber.from(unclaimedSupply.data || 0);
-
-    let max;
-    if (maxAvailable.lt(bnMaxClaimable) && !isOpenEdition) {
-      max = maxAvailable;
-    } else {
-      max = bnMaxClaimable;
-    }
-
-    if (max.gte(1_000_000)) {
-      return 1_000_000;
-    }
-    return max.toNumber();
-  }, [
-    claimerProofs.data?.maxClaimable,
-    unclaimedSupply.data,
-    activeClaimCondition.data?.maxClaimableSupply,
-    activeClaimCondition.data?.maxClaimablePerWallet,
-  ]);
-
-  const isSoldOut = useMemo(() => {
-    try {
-      return (
-        (activeClaimCondition.isSuccess &&
-          BigNumber.from(activeClaimCondition.data?.availableSupply || 0).lte(
-            0,
-          )) ||
-        (numberClaimed === numberTotal && !isOpenEdition)
-      );
-    } catch (e) {
-      return false;
-    }
-  }, [
-    activeClaimCondition.data?.availableSupply,
-    activeClaimCondition.isSuccess,
-    numberClaimed,
-    numberTotal,
-    isOpenEdition,
-  ]);
-
-  const canClaim = useMemo(() => {
-    return (
-      activeClaimCondition.isSuccess &&
-      claimIneligibilityReasons.isSuccess &&
-      claimIneligibilityReasons.data?.length === 0 &&
-      !isSoldOut
-    );
-  }, [
-    activeClaimCondition.isSuccess,
-    claimIneligibilityReasons.data?.length,
-    claimIneligibilityReasons.isSuccess,
-    isSoldOut,
-  ]);
 
   const isLoading = useMemo(() => {
     return (
-      activeClaimCondition.isLoading ||
       unclaimedSupply.isLoading ||
       claimedSupply.isLoading ||
       !contractQuery.contract
     );
   }, [
-    activeClaimCondition.isLoading,
     contractQuery.contract,
     claimedSupply.isLoading,
     unclaimedSupply.isLoading,
   ]);
 
   const buttonLoading = useMemo(
-    () => isLoading || claimIneligibilityReasons.isLoading,
-    [claimIneligibilityReasons.isLoading, isLoading],
+    () => isLoading,
+    [isLoading],
   );
 
-  const buttonText = useMemo(() => {
-    if (isSoldOut) {
-      return "Sold Out";
-    }
-
-    if (canClaim) {
-      const pricePerToken = BigNumber.from(
-        activeClaimCondition.data?.currencyMetadata.value || 0,
-      );
-      if (pricePerToken.eq(0)) {
-        return "Mint (Free)";
-      }
-      return `Mint (${priceToMint})`;
-    }
-    if (claimIneligibilityReasons.data?.length) {
-      return parseIneligibility(claimIneligibilityReasons.data, quantity);
-    }
-    if (buttonLoading) {
-      return "Checking eligibility...";
-    }
-
-    return "Minting not available";
-  }, [
-    isSoldOut,
-    canClaim,
-    claimIneligibilityReasons.data,
-    buttonLoading,
-    activeClaimCondition.data?.currencyMetadata.value,
-    priceToMint,
-    quantity,
-  ]);
 
   const dropNotReady = useMemo(
     () =>
-      claimConditions.data?.length === 0 ||
-      claimConditions.data?.every((cc) => cc.maxClaimableSupply === "0"),
-    [claimConditions.data],
+      approved?.length === 0 ||
+      approved?.every((cc) => cc.condition.limit === "0"),
+    [approved],
   );
 
   const dropStartingSoon = useMemo(
     () =>
-      (claimConditions.data &&
-        claimConditions.data.length > 0 &&
-        activeClaimCondition.isError) ||
-      (activeClaimCondition.data &&
-        activeClaimCondition.data.startTime > new Date()),
+      (approved &&
+        approved > 0) ||
+      (approved &&
+        approved.start > new Date()),
     [
-      activeClaimCondition.data,
-      activeClaimCondition.isError,
-      claimConditions.data,
+      approved,
+      approved.start,
     ],
   );
 
+
+  //thirdweb client id required
   const clientId = urlParams.get("clientId") || clientIdConst || "";
   if (!clientId) {
     return (
@@ -489,6 +309,7 @@ export default function Home() {
     );
   }
 
+  //check to determin if contract address provided in parameters
   if (!contractAddress) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -497,9 +318,12 @@ export default function Home() {
     );
   }
 
+  //mint function for each invite
   // const mint = async () => {
-  //   contractQuery.contract?.call({ key: publicInviteKey, proof: [] }, quantity, 0);
+  //   contractQuery.contract?.call("mint", mintConditions);
+  //   //contractQuery.contract?.call({ key: publicInviteKey, proof: [] }, quantity, cost);
   // }
+ 
 
   return (
     <div className="w-screen min-h-screen">
@@ -507,7 +331,7 @@ export default function Home() {
       <div className="grid h-screen grid-cols-1 lg:grid-cols-12">
         <div className="items-center justify-center hidden w-full h-full lg:col-span-5 lg:flex lg:px-12">
           <HeadingImage
-            src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
+            src={collectionImg}
             isLoading={isLoading}
           />
         </div>
@@ -515,7 +339,7 @@ export default function Home() {
           <div className="flex flex-col w-full max-w-xl gap-4 p-12 rounded-xl lg:border lg:border-gray-400 lg:dark:border-gray-800">
             <div className="flex w-full mt-8 xs:mb-8 xs:mt-0 lg:hidden">
               <HeadingImage
-                src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
+                src={collectionImg}
                 isLoading={isLoading}
               />
             </div>
@@ -638,7 +462,7 @@ export default function Home() {
                         maxHeight: "43px",
                       }}
                       theme={theme}
-                      // action={mint()}
+                      action={mint()}
                       isDisabled={!canClaim || buttonLoading}
                       onError={(err) => {
                         console.error(err);
