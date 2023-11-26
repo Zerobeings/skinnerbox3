@@ -163,10 +163,21 @@ export default function Home() {
         try {
           console.log("Checking approved invites for address:", address);
           console.log("New invites:", newInvites);
+          let anyInviteIncluded = false;
   
           const approvals = await Promise.all(newInvites.map(async (invite) => {
             // console.log("Fetching CID:", invite.cid);
             if (invite.cid == "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"){
+              if (anyInviteIncluded) {
+                return {
+                  addresses: "Null",
+                  name: "Public Invite",
+                  cid: invite.cid,
+                  key: invite.key,
+                  condition: invite.condition,
+                }; // Skip this invite if already included
+              }
+              anyInviteIncluded = true;
               return {
                 addresses: "Any",
                 name: "Public Invite",
@@ -263,14 +274,14 @@ export default function Home() {
 
   const isLoading = useMemo(() => {
     return (
-      unclaimedSupply.isLoading ||
-      claimedSupply.isLoading ||
+      !unclaimedSupply ||
+      !claimedSupply ||
       !contractQuery.contract
     );
   }, [
     contractQuery.contract,
-    claimedSupply.isLoading,
-    unclaimedSupply.isLoading,
+    claimedSupply,
+    unclaimedSupply,
   ]);
 
   const buttonLoading = useMemo(
@@ -317,6 +328,39 @@ export default function Home() {
       </div>
     );
   }
+
+  const isOpenEdition = useMemo(() => {
+    if (contractQuery?.contract) {
+      const contractWrapper = (contractQuery.contract as any)
+        .contractWrapper as ContractWrapper<any>;
+
+      const featureDetected = detectContractFeature(
+        contractWrapper,
+        "ERC721SharedMetadata",
+      );
+
+      return featureDetected;
+    }
+    return false;
+  }, [contractQuery.contract]);
+
+  const isSoldOut = useMemo(() => {
+    try {
+      return (
+        (unclaimedSupply &&
+          BigNumber.from(unclaimedSupply|| 0).lte(
+            0,
+          )) ||
+        (numberClaimed === numberTotal && !isOpenEdition)
+      );
+    } catch (e) {
+      return false;
+    }
+  }, [
+    numberClaimed,
+    numberTotal,
+    isOpenEdition,
+  ]);
 
   //mint function for each invite
   // const mint = async () => {
@@ -399,119 +443,82 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
-            <div className="flex w-full gap-4">
-              {dropNotReady ? (
-                <span className="text-red-500">
-                  This drop is not ready to be minted yet. (No claim condition
-                  set)
-                </span>
-              ) : dropStartingSoon ? (
-                <span className="text-gray-500">
-                  Drop is starting soon. Please check back later.
-                </span>
-              ) : (
-                    <div className="flex flex-col w-full gap-4">
-                      <div className="flex flex-col w-full gap-4 lg:flex-row lg:items-center lg:gap-4 ">
-                        <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
-                      <button
-                        onClick={() => {
-                          const value = quantity - 1;
-                          if (value > maxClaimable) {
-                            setQuantity(maxClaimable);
-                          } else if (value < 1) {
-                            setQuantity(1);
-                          } else {
-                            setQuantity(value);
+            {approved && approved.length > 0 && (
+              <table className="min-w-full divide-y divide-gray-700 bg-gray-800 rounded-lg">
+              <thead className="bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Price
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Limit
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    Mint
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
+                {approved
+                  .filter(item => 
+                    item.addresses.includes(address) || 
+                    item.addresses.includes("Any")
+                  )
+                  .map(item => (
+                    <tr key={item.key}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {BigNumber.from(item.condition.price._hex).toString()} ETH
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {BigNumber.from(item.condition.limit._hex).toString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
+                        <button
+                          onClick={() => {
+                            const value = quantity - 1;
+                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            } else if (value < 1) {
+                              setQuantity(1);
+                            } else {
+                              setQuantity(value);
+                            }
+                          }}
+                              className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
+                          disabled={isSoldOut || quantity - 1 < 1}
+                        >
+                          -
+                        </button>
+                            <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
+                          {!isLoading && isSoldOut ? "Sold Out" : quantity}
+                        </p>
+                        <button
+                          onClick={() => {
+                            const value = quantity + 1;
+                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            } else if (value < 1) {
+                              setQuantity(1);
+                            } else {
+                              setQuantity(value);
+                            }
+                          }}
+                          className={
+                            "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
                           }
-                        }}
-                            className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                        disabled={isSoldOut || quantity - 1 < 1}
-                      >
-                        -
-                      </button>
-                          <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
-                        {!isLoading && isSoldOut ? "Sold Out" : quantity}
-                      </p>
-                      <button
-                        onClick={() => {
-                          const value = quantity + 1;
-                          if (value > maxClaimable) {
-                            setQuantity(maxClaimable);
-                          } else if (value < 1) {
-                            setQuantity(1);
-                          } else {
-                            setQuantity(value);
-                          }
-                        }}
-                        className={
-                          "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                        }
-                        disabled={isSoldOut || quantity + 1 > maxClaimable}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <Web3Button
-                      contractAddress={
-                        contractQuery.contract?.getAddress() || ""
-                      }
-                      style={{
-                        backgroundColor:
-                          colors[primaryColor as keyof typeof colors] ||
-                          primaryColor,
-                        maxHeight: "43px",
-                      }}
-                      theme={theme}
-                      action={mint()}
-                      isDisabled={!canClaim || buttonLoading}
-                      onError={(err) => {
-                        console.error(err);
-                        console.log({ err });
-                        toast({
-                          title: "Failed to mint drop",
-                          description: (err as any).reason || "",
-                          duration: 9000,
-                          variant: "destructive",
-                        });
-                      }}
-                      onSuccess={() => {
-                        toast({
-                          title: "Successfully minted",
-                          description:
-                            "The NFT has been transferred to your wallet",
-                          duration: 5000,
-                          className: "bg-green-500",
-                        });
-                      }}
-                    >
-                      {buttonLoading ? (
-                        <div role="status">
-                          <svg
-                            aria-hidden="true"
-                                className="w-4 h-4 mr-2 text-gray-200 animate-spin fill-blue-600 dark:text-gray-600"
-                            viewBox="0 0 100 101"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                              fill="currentColor"
-                            />
-                            <path
-                              d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                              fill="currentFill"
-                            />
-                          </svg>
-                          <span className="sr-only">Loading...</span>
-                        </div>
-                      ) : (
-                        buttonText
-                      )}
-                    </Web3Button>
-                  </div>
-                </div>
-              )}
-            </div>
+                          disabled={isSoldOut || quantity + 1 > BigNumber.from(item.condition.limit._hex).toString()}
+                        >
+                          +
+                        </button>
+                      </div>
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>     
+            )}
           </div>
         </div>
       </div>
