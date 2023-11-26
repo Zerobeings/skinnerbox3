@@ -233,6 +233,11 @@ export default function Home() {
           // Handle the case for "Any" (e.g., return an empty array or some default value)
           return []; // Or return a default value if needed
         }
+
+        if (addr.addresses === "Null") {
+          // Handle the case for "Any" (e.g., return an empty array or some default value)
+          return []; // Or return a default value if needed
+        }
       
         // Check if the addresses field is an array
         if (Array.isArray(addr.addresses)) {
@@ -256,6 +261,8 @@ export default function Home() {
     }
   }
 }, [approved, address]);
+
+console.log("proof", proof);
 
 
   const unclaimedSupply = totalSupply - nextTokenId - 1;
