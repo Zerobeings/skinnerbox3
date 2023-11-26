@@ -454,7 +454,7 @@ console.log("proof", proof);
               <table className="min-w-full divide-y divide-gray-700 bg-gray-800 rounded-lg">
               <thead className="bg-gray-700">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider ">
                     Price
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -482,7 +482,7 @@ console.log("proof", proof);
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {BigNumber.from(item.condition.limit._hex).toString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
                         <button
                           onClick={() => {
@@ -533,6 +533,8 @@ console.log("proof", proof);
                               colors[primaryColor as keyof typeof colors] ||
                               primaryColor,
                             maxHeight: "43px",
+                            borderRadius: "18px",
+                            width: "10px"
                           }}
                           theme={theme}
                           // action={mint()}
