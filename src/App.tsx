@@ -31,6 +31,8 @@ import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/cor
 import { abi } from "./abi/abi.ts";
 import { CID } from 'multiformats/cid';
 import { create } from 'multiformats/hashes/digest';
+import { keccak256 } from 'ethers/lib/utils';
+import { MerkleTree } from 'merkletreejs';
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -72,6 +74,8 @@ export default function Home() {
   const [collectionImg, setCollectionImg] = useState("");
   const ipfsGateway = "https://ipfs.io/ipfs/";
   const [approved, setApproved] = useState([]);
+  const [proof, setProof] = useState([]);
+  const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
   useEffect(() => {
@@ -122,65 +126,73 @@ export default function Home() {
   useEffect(() => {
     if (invites.data != null) {
       const updateInvitesData = async () => {
-        const updatedInvites = await Promise.all(invites.data.map(invite => {
+        const updatedInvites = await Promise.all(invites.data.map(async invite => { // Make sure to use async here
           // Extract the cid and key from each invite
           const cidHex = invite.data.cid;
           const key = invite.data.key;
-
-          const bytes = create(18, Uint8Array.from(Buffer.from(cidHex.slice(2), 'hex')));
-
-          const cid = CID.createV1(0x55, bytes);
   
-          // Convert the cid to an IPFS URL
+          const bytes = create(18, Uint8Array.from(Buffer.from(cidHex.slice(2), 'hex')));
+          const cid = CID.createV1(0x55, bytes);
           const ipfsUrl = cid.toString();
-          
-
-            // Fetch condition
-            try {
-              const condition = contractQuery.contract.call("invite", [key]);
-              
-              return {
-                key: key,
-                cid: ipfsUrl,
-                condition: condition,
-              };
-            } catch (error) {
-              console.error("Error fetching condition:", error);
-              return {
-                key: key,
-                cid: ipfsUrl,
-                condition: null,
-              };
-            }
-          }));
-
-      setNewInvites(updatedInvites);
-    };
+  
+          try {
+            // Await the resolution of the condition promise
+            const condition = await contractQuery.contract.call("invite", [key]);
+            
+            return {
+              key: key,
+              cid: ipfsUrl,
+              condition: condition,
+            };
+          } catch (error) {
+            console.error("Error fetching condition:", error);
+            return {
+              key: key,
+              cid: ipfsUrl,
+              condition: null,
+            };
+          }
+        }));
+  
+        setNewInvites(updatedInvites);
+        //console.log("newInvites", BigNumber.from(newInvites[0].condition.limit._hex));
+      };
       updateInvitesData().catch(console.error);
     }
-  }, [contractQuery.contract ,invites.data]); 
+  }, [contractQuery.contract, invites.data]);
   
-  console.log("newInvites", newInvites);  
+  
+ 
 
   //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
   useEffect(() => {
     if (address != null && newInvites != null) {
       const checkApprovedInvites = async () => {
-        const updatedApproved = await Promise.all(newInvites.map(invite => {
-          // Extract the cid and key from each invite
-          const cid = invite.cid;
-          let approvedAddress = [];
-            if (cid == "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"){
-              approvedAddress.push(invite);
-            } else {
-              const checkInviteApproval = fetch(`${ipfsGateway}${cid}`).then((r) => r.json());
-              if (checkInviteApproval.approved.includes(address)) {
-                approvedAddress.push(invite);
-              }
+        try {
+          console.log("Checking approved invites for address:", address);
+          console.log("New invites:", newInvites);
+  
+          const approvals = await Promise.all(newInvites.map(async (invite) => {
+            // console.log("Fetching CID:", invite.cid);
+            if (invite.cid == "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"){
+              return {
+                addresses: "Any",
+                name: "Public Invite",
+              };
             }
-            setApproved(approvedAddress);
+            const response = await fetch(`${ipfsGateway}${invite.cid}`);
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
           }));
-        };
+  
+          console.log("Approvals:", approvals);
+          setApproved(approvals);
+        } catch (error) {
+          console.error("Error in fetching approvals:", error);
+        }
+      };
   
       checkApprovedInvites();
     } else {
@@ -193,8 +205,36 @@ export default function Home() {
     }
   }, [address, newInvites]);
   
- console.log("approved", approved);
- 
+
+  console.log("approved", approved);
+
+ useEffect(() => {
+  if (approved && address) {
+    try {
+      let leafNodes;
+      
+      leafNodes = approved.map(addr => keccak256(addr.addresses.toLowerCase()));
+   
+      console.log("Leaf Nodes:", leafNodes);
+
+      const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
+      console.log("Merkle Tree:", merkleTree.toString());
+
+      const hashedAddress = keccak256(address.toLowerCase());
+      console.log("Hashed Address:", hashedAddress);
+
+      const merkleProof = merkleTree.getHexProof(hashedAddress);
+      console.log("Merkle Proof:", merkleProof);
+
+      setProof(merkleProof);
+    } catch (error) {
+      console.error("Error fetching proof:", error);
+    }
+  }
+}, [approved, address]);
+
+console.log("proof", proof);
+
   const claimConditions = useClaimConditions(contractQuery.contract);
   const activeClaimCondition = useActiveClaimConditionForWallet(
     contractQuery.contract,
@@ -438,6 +478,10 @@ export default function Home() {
     );
   }
 
+  const mint = async () => {
+    contractQuery.contract?.call({ key: publicInviteKey, proof: [] },quantity, 0);
+  }
+
   return (
     <div className="w-screen min-h-screen">
       <ConnectWallet className="!absolute !right-4 !top-4" theme={theme} />
@@ -575,7 +619,7 @@ export default function Home() {
                         maxHeight: "43px",
                       }}
                       theme={theme}
-                      action={(cntr) => cntr.erc721.claim(quantity)}
+                      action={mint()}
                       isDisabled={!canClaim || buttonLoading}
                       onError={(err) => {
                         console.error(err);
