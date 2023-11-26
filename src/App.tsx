@@ -20,7 +20,7 @@ import {
   contractConst,
   primaryColorConst,
   themeConst,
-} from "./consts/myParameters"; //change this parameters.ts when you want to deploy
+} from "./consts/parameters"; //change this parameters.ts when you want to deploy
 import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/core/classes/contract-wrapper";
 import { abi } from "./abi/abi.ts";
 import { CID } from 'multiformats/cid';
@@ -68,7 +68,6 @@ export default function Home() {
   const [collectionImg, setCollectionImg] = useState("");
   const ipfsGateway = "https://ipfs.io/ipfs/";
   const [approved, setApproved] = useState([]);
-  const [proof, setProof] = useState([]);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
@@ -171,7 +170,7 @@ export default function Home() {
               if (anyInviteIncluded) {
                 return {
                   addresses: "Null",
-                  name: "Public Invite",
+                  name: "Public Mint",
                   cid: invite.cid,
                   key: invite.key,
                   condition: invite.condition,
@@ -180,7 +179,7 @@ export default function Home() {
               anyInviteIncluded = true;
               return {
                 addresses: "Any",
-                name: "Public Invite",
+                name: "Public Mint",
                 cid: invite.cid,
                 key: invite.key,
                 condition: invite.condition,
@@ -222,47 +221,52 @@ export default function Home() {
 
   // console.log("approved", approved);
 
- useEffect(() => {
-  if (approved && address) {
-    console.log("Generating proof for address:", address);
-    try {
-      // Generate leaf nodes from the approved invites
-      const leafNodes = approved.flatMap(addr => {
-        // Check if the addresses field is "Any"
-        if (addr.addresses === "Any") {
-          // Handle the case for "Any" (e.g., return an empty array or some default value)
-          return []; // Or return a default value if needed
+  useEffect(() => {
+    if (approved && address) {
+      console.log("Generating proof for address:", address);
+      try {
+        // Check if proof is already generated for all items
+        const isProofGenerated = approved.every(item => item.addresses === "Any" || item.addresses === "Null" || item.proof);
+  
+        if (!isProofGenerated) {
+          // Generate leaf nodes from the approved invites
+          const leafNodes = approved.flatMap(addr => {
+            if (addr.addresses === "Any" || addr.addresses === "Null") {
+              return [];
+            }
+            
+            if (Array.isArray(addr.addresses)) {
+              return addr.addresses.map(address => keccak256(address.toLowerCase()));
+            }
+            
+            return [keccak256(addr.addresses.toLowerCase())];
+          });
+  
+          const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
+          const hashedAddress = keccak256(address.toLowerCase());
+          const merkleProof = merkleTree.getHexProof(hashedAddress);
+  
+          // Update the approved array with the proof
+          const updatedApproved = approved.map(item => {
+            if (item.addresses !== "Any" && item.addresses !== "Null" && !item.proof) {
+              return { ...item, proof: merkleProof };
+            } else {
+              return { ...item, proof: [] };
+            }
+            return item;
+          });
+  
+          setApproved(updatedApproved);
         }
-
-        if (addr.addresses === "Null") {
-          // Handle the case for "Any" (e.g., return an empty array or some default value)
-          return []; // Or return a default value if needed
-        }
-      
-        // Check if the addresses field is an array
-        if (Array.isArray(addr.addresses)) {
-          // If it's an array, map each address in the array
-          return addr.addresses.map(address => keccak256(address.toLowerCase()));
-        }
-      
-        // If it's a single address, just apply the function to this address
-        return [keccak256(addr.addresses.toLowerCase())];
-      });
-
-      const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
-
-      const hashedAddress = keccak256(address.toLowerCase());
-
-      const merkleProof = merkleTree.getHexProof(hashedAddress);
-
-      setProof(merkleProof);
-    } catch (error) {
-      console.error("Error fetching proof:", error);
+        
+      } catch (error) {
+        console.error("Error fetching proof:", error);
+      }
     }
-  }
-}, [approved, address]);
+  }, [approved, address]);
+  
 
-// console.log("proof", proof);
+// console.log("proof", approved);
 
 
   const unclaimedSupply = totalSupply - nextTokenId - 1;
@@ -480,7 +484,7 @@ export default function Home() {
                     Quantity
                   </th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    Mint
+                    Invite
                   </th>
                 </tr>
               </thead>
@@ -555,7 +559,7 @@ export default function Home() {
                           theme={theme}
                           action={() => {
                             mint(
-                            item.key, proof, quantity, BigNumber.from(item.condition.price._hex)
+                            item.key, item.proof, quantity, BigNumber.from(item.condition.price._hex)
                             );
                           }}
                           isDisabled={buttonLoading}
@@ -591,7 +595,7 @@ export default function Home() {
                               <span className="sr-only">Loading...</span>
                             </div>
                           ) : (
-                            "Mint"
+                            item.name
                           )}
                         </Web3Button>
                       </td>
