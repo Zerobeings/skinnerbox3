@@ -1,18 +1,12 @@
 import {
   ConnectWallet,
   detectContractFeature,
-  useActiveClaimConditionForWallet,
   useAddress,
-  useClaimConditions,
-  useClaimedNFTSupply,
-  useClaimerProofs,
-  useClaimIneligibilityReasons,
   useContract,
   useContractMetadata,
   useContractEvents,
   useContractRead,
   useNFT,
-  useUnclaimedNFTSupply,
   Web3Button,
 } from "@thirdweb-dev/react";
 import { BigNumber, utils } from "ethers";
@@ -112,15 +106,14 @@ export default function Home() {
 
   }, [contractQuery.contract, contractQuery]);
 
-  console.log("totalSupply", totalSupply);
-  console.log("nextTokenId", nextTokenId);
+  // console.log("totalSupply", totalSupply);
+  // console.log("nextTokenId", nextTokenId);
 
+  // fetch invites from f0 contract
   const invites = useContractEvents(
     contractQuery.contract,
-    "Invited", // Event name being emitted by your smart contract
+    "Invited",
   );
-  //console.table("invites", invites.data);
-
 
   //for factoria invite fetch
   useEffect(() => {
@@ -160,7 +153,7 @@ export default function Home() {
     }
   }, [contractQuery.contract, invites.data]);
   
-   console.log("newInvites", newInvites);
+  //  console.log("newInvites", newInvites);
  
 
   //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
@@ -169,11 +162,22 @@ export default function Home() {
       const checkApprovedInvites = async () => {
         try {
           console.log("Checking approved invites for address:", address);
-          console.log("New invites:", newInvites);
+          // console.log("New invites:", newInvites);
+          let anyInviteIncluded = false;
   
           const approvals = await Promise.all(newInvites.map(async (invite) => {
             // console.log("Fetching CID:", invite.cid);
             if (invite.cid == "bafkreiaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"){
+              if (anyInviteIncluded) {
+                return {
+                  addresses: "Null",
+                  name: "Public Invite",
+                  cid: invite.cid,
+                  key: invite.key,
+                  condition: invite.condition,
+                }; // Skip this invite if already included
+              }
+              anyInviteIncluded = true;
               return {
                 addresses: "Any",
                 name: "Public Invite",
@@ -197,7 +201,7 @@ export default function Home() {
           };
           }));
   
-          console.log("Approvals:", approvals);
+          // console.log("Approvals:", approvals);
           setApproved(approvals);
         } catch (error) {
           console.error("Error in fetching approvals:", error);
@@ -216,7 +220,7 @@ export default function Home() {
   }, [address, newInvites]);
   
 
-  console.log("approved", approved);
+  // console.log("approved", approved);
 
  useEffect(() => {
   if (approved && address) {
@@ -226,6 +230,11 @@ export default function Home() {
       const leafNodes = approved.flatMap(addr => {
         // Check if the addresses field is "Any"
         if (addr.addresses === "Any") {
+          // Handle the case for "Any" (e.g., return an empty array or some default value)
+          return []; // Or return a default value if needed
+        }
+
+        if (addr.addresses === "Null") {
           // Handle the case for "Any" (e.g., return an empty array or some default value)
           return []; // Or return a default value if needed
         }
@@ -253,28 +262,11 @@ export default function Home() {
   }
 }, [approved, address]);
 
-
-  const claimConditions = useClaimConditions(contractQuery.contract);
-  const activeClaimCondition = useActiveClaimConditionForWallet(
-    contractQuery.contract,
-    address,
-  );
-  const claimerProofs = useClaimerProofs(contractQuery.contract, address || "");
-  const claimIneligibilityReasons = useClaimIneligibilityReasons(
-    contractQuery.contract,
-    {
-      quantity,
-      walletAddress: address || "",
-    },
-  );
+// console.log("proof", proof);
 
 
   const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
-  const { data: firstNft, isLoading: firstNftLoading } = useNFT(
-    contractQuery.contract,
-    0,
-  );
 
   const numberClaimed = useMemo(() => {
     return BigNumber.from(claimedSupply || 0).toString();
@@ -286,20 +278,63 @@ export default function Home() {
       .toString();
   }, [claimedSupply, unclaimedSupply]);
 
-  const priceToMint = useMemo(() => {
-    const bnPrice = BigNumber.from(
-      activeClaimCondition.data?.currencyMetadata.value || 0,
+
+  const isLoading = useMemo(() => {
+    return (
+      !unclaimedSupply ||
+      !claimedSupply ||
+      !contractQuery.contract
     );
-    return `${utils.formatUnits(
-      bnPrice.mul(quantity).toString(),
-      activeClaimCondition.data?.currencyMetadata.decimals || 18,
-    )} ${activeClaimCondition.data?.currencyMetadata.symbol}`;
   }, [
-    activeClaimCondition.data?.currencyMetadata.decimals,
-    activeClaimCondition.data?.currencyMetadata.symbol,
-    activeClaimCondition.data?.currencyMetadata.value,
-    quantity,
+    contractQuery.contract,
+    claimedSupply,
+    unclaimedSupply,
   ]);
+
+  const buttonLoading = useMemo(
+    () => isLoading,
+    [isLoading],
+  );
+
+
+  const dropNotReady = useMemo(
+    () =>
+      approved?.length === 0 ||
+      approved?.every((cc) => cc.condition.limit === "0"),
+    [approved],
+  );
+
+  const dropStartingSoon = useMemo(
+    () =>
+      (approved &&
+        approved > 0) ||
+      (approved &&
+        approved.start > new Date()),
+    [
+      approved,
+      approved.start,
+    ],
+  );
+
+
+  //thirdweb client id required
+  const clientId = urlParams.get("clientId") || clientIdConst || "";
+  if (!clientId) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        Client ID is required as a query param to use this page.
+      </div>
+    );
+  }
+
+  //check to determin if contract address provided in parameters
+  if (!contractAddress) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        No contract address provided
+      </div>
+    );
+  }
 
   const isOpenEdition = useMemo(() => {
     if (contractQuery?.contract) {
@@ -316,69 +351,11 @@ export default function Home() {
     return false;
   }, [contractQuery.contract]);
 
-  const maxClaimable = useMemo(() => {
-    let bnMaxClaimable;
-    try {
-      bnMaxClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimableSupply || 0,
-      );
-    } catch (e) {
-      bnMaxClaimable = BigNumber.from(1_000_000);
-    }
-
-    let perTransactionClaimable;
-    try {
-      perTransactionClaimable = BigNumber.from(
-        activeClaimCondition.data?.maxClaimablePerWallet || 0,
-      );
-    } catch (e) {
-      perTransactionClaimable = BigNumber.from(1_000_000);
-    }
-
-    if (perTransactionClaimable.lte(bnMaxClaimable)) {
-      bnMaxClaimable = perTransactionClaimable;
-    }
-
-    const snapshotClaimable = claimerProofs.data?.maxClaimable;
-
-    if (snapshotClaimable) {
-      if (snapshotClaimable === "0") {
-        // allowed unlimited for the snapshot
-        bnMaxClaimable = BigNumber.from(1_000_000);
-      } else {
-        try {
-          bnMaxClaimable = BigNumber.from(snapshotClaimable);
-        } catch (e) {
-          // fall back to default case
-        }
-      }
-    }
-
-    const maxAvailable = BigNumber.from(unclaimedSupply.data || 0);
-
-    let max;
-    if (maxAvailable.lt(bnMaxClaimable) && !isOpenEdition) {
-      max = maxAvailable;
-    } else {
-      max = bnMaxClaimable;
-    }
-
-    if (max.gte(1_000_000)) {
-      return 1_000_000;
-    }
-    return max.toNumber();
-  }, [
-    claimerProofs.data?.maxClaimable,
-    unclaimedSupply.data,
-    activeClaimCondition.data?.maxClaimableSupply,
-    activeClaimCondition.data?.maxClaimablePerWallet,
-  ]);
-
   const isSoldOut = useMemo(() => {
     try {
       return (
-        (activeClaimCondition.isSuccess &&
-          BigNumber.from(activeClaimCondition.data?.availableSupply || 0).lte(
+        (unclaimedSupply &&
+          BigNumber.from(unclaimedSupply|| 0).lte(
             0,
           )) ||
         (numberClaimed === numberTotal && !isOpenEdition)
@@ -387,119 +364,33 @@ export default function Home() {
       return false;
     }
   }, [
-    activeClaimCondition.data?.availableSupply,
-    activeClaimCondition.isSuccess,
     numberClaimed,
     numberTotal,
     isOpenEdition,
   ]);
 
-  const canClaim = useMemo(() => {
-    return (
-      activeClaimCondition.isSuccess &&
-      claimIneligibilityReasons.isSuccess &&
-      claimIneligibilityReasons.data?.length === 0 &&
-      !isSoldOut
-    );
-  }, [
-    activeClaimCondition.isSuccess,
-    claimIneligibilityReasons.data?.length,
-    claimIneligibilityReasons.isSuccess,
-    isSoldOut,
-  ]);
-
-  const isLoading = useMemo(() => {
-    return (
-      activeClaimCondition.isLoading ||
-      unclaimedSupply.isLoading ||
-      claimedSupply.isLoading ||
-      !contractQuery.contract
-    );
-  }, [
-    activeClaimCondition.isLoading,
-    contractQuery.contract,
-    claimedSupply.isLoading,
-    unclaimedSupply.isLoading,
-  ]);
-
-  const buttonLoading = useMemo(
-    () => isLoading || claimIneligibilityReasons.isLoading,
-    [claimIneligibilityReasons.isLoading, isLoading],
-  );
-
-  const buttonText = useMemo(() => {
-    if (isSoldOut) {
-      return "Sold Out";
-    }
-
-    if (canClaim) {
-      const pricePerToken = BigNumber.from(
-        activeClaimCondition.data?.currencyMetadata.value || 0,
-      );
-      if (pricePerToken.eq(0)) {
-        return "Mint (Free)";
-      }
-      return `Mint (${priceToMint})`;
-    }
-    if (claimIneligibilityReasons.data?.length) {
-      return parseIneligibility(claimIneligibilityReasons.data, quantity);
-    }
-    if (buttonLoading) {
-      return "Checking eligibility...";
-    }
-
-    return "Minting not available";
-  }, [
-    isSoldOut,
-    canClaim,
-    claimIneligibilityReasons.data,
-    buttonLoading,
-    activeClaimCondition.data?.currencyMetadata.value,
-    priceToMint,
-    quantity,
-  ]);
-
-  const dropNotReady = useMemo(
-    () =>
-      claimConditions.data?.length === 0 ||
-      claimConditions.data?.every((cc) => cc.maxClaimableSupply === "0"),
-    [claimConditions.data],
-  );
-
-  const dropStartingSoon = useMemo(
-    () =>
-      (claimConditions.data &&
-        claimConditions.data.length > 0 &&
-        activeClaimCondition.isError) ||
-      (activeClaimCondition.data &&
-        activeClaimCondition.data.startTime > new Date()),
-    [
-      activeClaimCondition.data,
-      activeClaimCondition.isError,
-      claimConditions.data,
-    ],
-  );
-
-  const clientId = urlParams.get("clientId") || clientIdConst || "";
-  if (!clientId) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        Client ID is required as a query param to use this page.
-      </div>
-    );
+  //mint function for each invite
+  const mint = async (key, proof, quantity, cost) => {
+    const auth = {
+      "key": key,
+      "proof": proof,
+    };
+    const count = BigNumber.from(quantity);
+    console.log("Minting NFT");
+    if (quantity !== undefined) {
+      contractQuery.contract.call("mint", [auth, count]).then((result) => {
+        console.log("Minted:", result);
+          toast({
+            title: "Successfully minted",
+            description:
+              "The NFT has been transferred to your wallet",
+            duration: 5000,
+            className: "bg-green-500",
+          });
+      }).catch(console.error);
   }
+};
 
-  if (!contractAddress) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        No contract address provided
-      </div>
-    );
-  }
-
-  // const mint = async () => {
-  //   contractQuery.contract?.call({ key: publicInviteKey, proof: [] }, quantity, 0);
-  // }
 
   return (
     <div className="w-screen min-h-screen">
@@ -507,7 +398,7 @@ export default function Home() {
       <div className="grid h-screen grid-cols-1 lg:grid-cols-12">
         <div className="items-center justify-center hidden w-full h-full lg:col-span-5 lg:flex lg:px-12">
           <HeadingImage
-            src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
+            src={collectionImg}
             isLoading={isLoading}
           />
         </div>
@@ -515,7 +406,7 @@ export default function Home() {
           <div className="flex flex-col w-full max-w-xl gap-4 p-12 rounded-xl lg:border lg:border-gray-400 lg:dark:border-gray-800">
             <div className="flex w-full mt-8 xs:mb-8 xs:mt-0 lg:hidden">
               <HeadingImage
-                src={contractMetadata.data?.image || firstNft?.metadata.image || collectionImg}
+                src={collectionImg}
                 isLoading={isLoading}
               />
             </div>
@@ -575,119 +466,141 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
-            <div className="flex w-full gap-4">
-              {dropNotReady ? (
-                <span className="text-red-500">
-                  This drop is not ready to be minted yet. (No claim condition
-                  set)
-                </span>
-              ) : dropStartingSoon ? (
-                <span className="text-gray-500">
-                  Drop is starting soon. Please check back later.
-                </span>
-              ) : (
-                    <div className="flex flex-col w-full gap-4">
-                      <div className="flex flex-col w-full gap-4 lg:flex-row lg:items-center lg:gap-4 ">
-                        <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
-                      <button
-                        onClick={() => {
-                          const value = quantity - 1;
-                          if (value > maxClaimable) {
-                            setQuantity(maxClaimable);
-                          } else if (value < 1) {
-                            setQuantity(1);
-                          } else {
-                            setQuantity(value);
+            {approved && approved.length > 0 && (
+              <table className="min-w-full divide-y divide-gray-700 bg-gray-800 rounded-lg">
+              <thead className="bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider ">
+                    Price
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Limit
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                    Mint
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
+                {approved
+                  .filter(item => 
+                    item.addresses.includes(address) || 
+                    item.addresses.includes("Any")
+                  )
+                  .map(item => (
+                    <tr key={item.key}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {BigNumber.from(item.condition.price._hex).toString()} ETH
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                        {BigNumber.from(item.condition.limit._hex).toString()}
+                      </td>
+                      <td className="whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
+                        <button
+                          onClick={() => {
+                            const value = quantity - 1;
+                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            } else if (value < 1) {
+                              setQuantity(1);
+                            } else {
+                              setQuantity(value);
+                            }
+                          }}
+                              className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
+                          disabled={isSoldOut || quantity - 1 < 1}
+                        >
+                          -
+                        </button>
+                            <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
+                          {!isLoading && isSoldOut ? "Sold Out" : quantity}
+                        </p>
+                        <button
+                          onClick={() => {
+                            const value = quantity + 1;
+                            if (value > BigNumber.from(item.condition.limit._hex).toString()) {
+                              setQuantity(BigNumber.from(item.condition.limit._hex).toString());
+                            } else if (value < 1) {
+                              setQuantity(1);
+                            } else {
+                              setQuantity(value);
+                            }
+                          }}
+                          className={
+                            "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
                           }
-                        }}
-                            className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                        disabled={isSoldOut || quantity - 1 < 1}
-                      >
-                        -
-                      </button>
-                          <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
-                        {!isLoading && isSoldOut ? "Sold Out" : quantity}
-                      </p>
-                      <button
-                        onClick={() => {
-                          const value = quantity + 1;
-                          if (value > maxClaimable) {
-                            setQuantity(maxClaimable);
-                          } else if (value < 1) {
-                            setQuantity(1);
-                          } else {
-                            setQuantity(value);
+                          disabled={isSoldOut || quantity + 1 > BigNumber.from(item.condition.limit._hex).toString()}
+                        >
+                          +
+                        </button>
+                      </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                        <Web3Button
+                          contractAddress={
+                            contractQuery.contract?.getAddress() || ""
                           }
-                        }}
-                        className={
-                          "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                        }
-                        disabled={isSoldOut || quantity + 1 > maxClaimable}
-                      >
-                        +
-                      </button>
-                    </div>
-                    <Web3Button
-                      contractAddress={
-                        contractQuery.contract?.getAddress() || ""
-                      }
-                      style={{
-                        backgroundColor:
-                          colors[primaryColor as keyof typeof colors] ||
-                          primaryColor,
-                        maxHeight: "43px",
-                      }}
-                      theme={theme}
-                      // action={mint()}
-                      isDisabled={!canClaim || buttonLoading}
-                      onError={(err) => {
-                        console.error(err);
-                        console.log({ err });
-                        toast({
-                          title: "Failed to mint drop",
-                          description: (err as any).reason || "",
-                          duration: 9000,
-                          variant: "destructive",
-                        });
-                      }}
-                      onSuccess={() => {
-                        toast({
-                          title: "Successfully minted",
-                          description:
-                            "The NFT has been transferred to your wallet",
-                          duration: 5000,
-                          className: "bg-green-500",
-                        });
-                      }}
-                    >
-                      {buttonLoading ? (
-                        <div role="status">
-                          <svg
-                            aria-hidden="true"
-                                className="w-4 h-4 mr-2 text-gray-200 animate-spin fill-blue-600 dark:text-gray-600"
-                            viewBox="0 0 100 101"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                              fill="currentColor"
-                            />
-                            <path
-                              d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                              fill="currentFill"
-                            />
-                          </svg>
-                          <span className="sr-only">Loading...</span>
-                        </div>
-                      ) : (
-                        buttonText
-                      )}
-                    </Web3Button>
-                  </div>
-                </div>
-              )}
-            </div>
+                          style={{
+                            backgroundColor:
+                              colors[primaryColor as keyof typeof colors] ||
+                              primaryColor,
+                            maxHeight: "43px",
+                            borderRadius: "18px",
+                            width: "10px"
+                          }}
+                          theme={theme}
+                          action={() => {
+                            mint(
+                            item.key, proof, quantity, BigNumber.from(item.condition.price._hex)
+                            );
+                          }}
+                          isDisabled={buttonLoading}
+                          onError={(err) => {
+                            console.error(err);
+                            console.log({ err });
+                            toast({
+                              title: "Failed to mint drop",
+                              description: (err as any).reason || "",
+                              duration: 9000,
+                              variant: "destructive",
+                            });
+                          }}
+                        >
+                          {buttonLoading ? (
+                            <div role="status">
+                              <svg
+                                aria-hidden="true"
+                                    className="w-4 h-4 mr-2 text-gray-200 animate-spin fill-blue-600 dark:text-gray-600"
+                                viewBox="0 0 100 101"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                                  fill="currentColor"
+                                />
+                                <path
+                                  d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                                  fill="currentFill"
+                                />
+                              </svg>
+                              <span className="sr-only">Loading...</span>
+                            </div>
+                          ) : (
+                            "Mint"
+                          )}
+                        </Web3Button>
+                      </td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>     
+            )}
           </div>
         </div>
       </div>
