@@ -99,5 +99,5 @@ You can also deploy it to any centralized server like any normal website.
 
 For thirdweb support, join the discord at [https://discord.gg/thirdweb](https://discord.gg/thirdweb).
 
-## Join the Factoria Discord for Factoria support!
-For any Factoria questions or suggestions, join the discord at [https://discord.gg/BZtp5F6QQM](https://discord.gg/BZtp5F6QQM).
+## Join the factoria Discord for factoria support!
+For any factoria questions or suggestions, join the discord at [https://discord.gg/BZtp5F6QQM](https://discord.gg/BZtp5F6QQM).
