@@ -30,7 +30,7 @@ const handleError = (message: string): string => {
     };
 
     const any = <T>(iteree: T[], iterator: (item: T, index: number, array: T[]) => boolean): boolean => {
-      let result: boolean;
+      let result: boolean = false;
       for (let i = 0; i < iteree.length; i++) {
         result = iterator(iteree[i], i, iteree);
         if (result) {
