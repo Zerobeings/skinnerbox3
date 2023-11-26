@@ -155,13 +155,12 @@ export default function Home() {
         }));
   
         setNewInvites(updatedInvites);
-        //console.log("newInvites", BigNumber.from(newInvites[0].condition.limit._hex));
       };
       updateInvitesData().catch(console.error);
     }
   }, [contractQuery.contract, invites.data]);
   
-  
+   console.log("newInvites", newInvites);
  
 
   //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
@@ -178,13 +177,24 @@ export default function Home() {
               return {
                 addresses: "Any",
                 name: "Public Invite",
+                cid: invite.cid,
+                key: invite.key,
+                condition: invite.condition,
               };
             }
             const response = await fetch(`${ipfsGateway}${invite.cid}`);
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`);
             }
-            return response.json();
+            const jsonData = await response.json();
+
+          // Merge the fetched data with cid, key, and condition from the invite
+          return {
+            ...jsonData, // Spread the JSON data
+            cid: invite.cid,
+            key: invite.key,
+            condition: invite.condition,
+          };
           }));
   
           console.log("Approvals:", approvals);
@@ -210,6 +220,7 @@ export default function Home() {
 
  useEffect(() => {
   if (approved && address) {
+    console.log("Generating proof for address:", address);
     try {
       let leafNodes;
       
