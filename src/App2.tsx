@@ -106,8 +106,8 @@ export default function Home() {
 
   }, [contractQuery.contract, contractQuery]);
 
-  console.log("totalSupply", totalSupply);
-  console.log("nextTokenId", nextTokenId);
+  // console.log("totalSupply", totalSupply);
+  // console.log("nextTokenId", nextTokenId);
 
   // fetch invites from f0 contract
   const invites = useContractEvents(
@@ -153,7 +153,7 @@ export default function Home() {
     }
   }, [contractQuery.contract, invites.data]);
   
-   console.log("newInvites", newInvites);
+  //  console.log("newInvites", newInvites);
  
 
   //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
@@ -162,7 +162,7 @@ export default function Home() {
       const checkApprovedInvites = async () => {
         try {
           console.log("Checking approved invites for address:", address);
-          console.log("New invites:", newInvites);
+          // console.log("New invites:", newInvites);
           let anyInviteIncluded = false;
   
           const approvals = await Promise.all(newInvites.map(async (invite) => {
@@ -201,7 +201,7 @@ export default function Home() {
           };
           }));
   
-          console.log("Approvals:", approvals);
+          // console.log("Approvals:", approvals);
           setApproved(approvals);
         } catch (error) {
           console.error("Error in fetching approvals:", error);
@@ -220,7 +220,7 @@ export default function Home() {
   }, [address, newInvites]);
   
 
-  console.log("approved", approved);
+  // console.log("approved", approved);
 
  useEffect(() => {
   if (approved && address) {
@@ -262,7 +262,7 @@ export default function Home() {
   }
 }, [approved, address]);
 
-console.log("proof", proof);
+// console.log("proof", proof);
 
 
   const unclaimedSupply = totalSupply - nextTokenId - 1;
@@ -370,11 +370,27 @@ console.log("proof", proof);
   ]);
 
   //mint function for each invite
-  // const mint = async () => {
-  //   contractQuery.contract?.call("mint", mintConditions);
-  //   //contractQuery.contract?.call({ key: publicInviteKey, proof: [] }, quantity, cost);
-  // }
- 
+  const mint = async (key, proof, quantity, cost) => {
+    const auth = {
+      "key": key,
+      "proof": proof,
+    };
+    const count = BigNumber.from(quantity);
+    console.log("Minting:", auth);
+    if (quantity !== undefined) {
+      contractQuery.contract.call("mint", [auth, count]).then((result) => {
+        console.log("Minted:", result);
+          toast({
+            title: "Successfully minted",
+            description:
+              "The NFT has been transferred to your wallet",
+            duration: 5000,
+            className: "bg-green-500",
+          });
+      }).catch(console.error);
+  }
+};
+
 
   return (
     <div className="w-screen min-h-screen">
@@ -537,7 +553,11 @@ console.log("proof", proof);
                             width: "10px"
                           }}
                           theme={theme}
-                          // action={mint()}
+                          action={() => {
+                            mint(
+                            item.key, proof, quantity, BigNumber.from(item.condition.price._hex)
+                            );
+                          }}
                           isDisabled={buttonLoading}
                           onError={(err) => {
                             console.error(err);
@@ -547,15 +567,6 @@ console.log("proof", proof);
                               description: (err as any).reason || "",
                               duration: 9000,
                               variant: "destructive",
-                            });
-                          }}
-                          onSuccess={() => {
-                            toast({
-                              title: "Successfully minted",
-                              description:
-                                "The NFT has been transferred to your wallet",
-                              duration: 5000,
-                              className: "bg-green-500",
                             });
                           }}
                         >
