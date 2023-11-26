@@ -13,6 +13,7 @@ import { BigNumber, utils } from "ethers";
 import { useMemo, useState, useEffect } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
+import { GitHub } from "./components/GitHub";
 import { useToast } from "./components/ui/use-toast";
 import { parseIneligibility } from "./utils/parseIneligibility";
 import {
@@ -608,6 +609,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <GitHub />
       <PoweredBy />
     </div>
   );
