@@ -472,19 +472,19 @@ export default function Home() {
               ) : null}
             </div>
             {approved && approved.length > 0 && (
-              <table className="min-w-full divide-y divide-gray-700 bg-gray-800 rounded-lg">
+              <table className="w-full divide-y divide-gray-700 bg-gray-800 rounded-lg overflow-hidden">
               <thead className="bg-gray-700">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider ">
+                  <th scope="col" className="px-2 md:px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Price
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th scope="col" className="px-2 md:px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Limit
                   </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                  <th scope="col" className="px-2 md:px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     Quantity
                   </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
+                  <th scope="col" className="px-2 md:px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     Invite
                   </th>
                 </tr>
