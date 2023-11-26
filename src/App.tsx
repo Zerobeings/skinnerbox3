@@ -28,6 +28,7 @@ import { CID } from 'multiformats/cid';
 import { create } from 'multiformats/hashes/digest';
 import { keccak256 } from 'ethers/lib/utils';
 import { MerkleTree } from 'merkletreejs';
+import handleError from "./utils/handleError";
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -390,7 +391,7 @@ export default function Home() {
     const count = BigNumber.from(quantity);
     console.log("Minting NFT");
     if (quantity !== undefined && contractQuery.contract !== undefined) {
-      contractQuery.contract.call("mint", [auth, count]).then((result) => {
+      await contractQuery.contract.call("mint", [auth, count]).then((result) => {
         console.log("Minted:", result);
           toast({
             title: "Successfully minted",
@@ -399,7 +400,18 @@ export default function Home() {
             duration: 5000,
             className: "bg-green-500",
           });
-      }).catch(console.error);
+      }).catch((error) => {
+        const reasonRegex = /Reason:\s+(.+)/;
+        const match = error.message.match(reasonRegex);
+        const reason = match ? match[1].trim() : 'Unknown Error';
+        const message = handleError(reason as string);
+        toast({
+          title: "Failed to mint drop",
+          description: `Reason: ${message}` || "",
+          duration: 9000,
+          variant: "destructive",
+        });
+      });
   }
 };
 
