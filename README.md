@@ -29,7 +29,7 @@
 
 Here's an example walkthrough of how it's used:
 
-![skinnerbox3.gif](skinnerbox3.gif)
+![skinnerboxv3.gif](skinnerboxv3.gif)
 
 You can try it out here: https://skinnerbox3.vercel.app/
 
