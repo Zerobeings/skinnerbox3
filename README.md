@@ -29,10 +29,11 @@
 
 Here's an example walkthrough of how it's used:
 
-![skinnerbox.gif](skinnerbox.gif)
+![skinnerbox3.gif](skinnerbox3.gif)
 
-You can try it out here: https://factoria-org.github.io/skinnerbox2
+You can try it out here: https://skinnerbox3.vercel.app/
 
+> Note: This is example is an Ethereum mainnet deployment. You can test it locally by following the "How to use" instructions below.
 
 # How to use
 
