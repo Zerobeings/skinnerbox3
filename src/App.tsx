@@ -22,7 +22,7 @@ import {
   primaryColorConst,
   themeConst,
 } from "./consts/parameters"; //change this parameters.ts when you want to deploy
-import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/core/classes/contract-wrapper";
+import { ContractWrapper } from "@thirdweb-dev/sdk/dist/declarations/src/evm/core/classes/internal/contract-wrapper";
 import { abi } from "./abi/abi";
 import { CID } from 'multiformats/cid';
 import { create } from 'multiformats/hashes/digest';
@@ -62,6 +62,9 @@ interface ApprovedItem {
   proof?: string[];
 }
 
+interface Quantities {
+  [key: string]: number;
+}
 
 export default function Home() {
   const contractQuery = useContract(contractAddress, abi);
@@ -73,7 +76,7 @@ export default function Home() {
   const root = window.document.documentElement;
   root.classList.add(theme);
   const address = useAddress();
-  const [quantities, setQuantities] = useState({});
+  const [quantities, setQuantities] = useState<Quantities>({});
   const [totalSupply, setTotalSupply] = useState(0);
   const [nextTokenId, setNextTokenId] = useState(0);
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
@@ -415,14 +418,14 @@ export default function Home() {
   }
 };
 
-const handleDecreaseQuantity = (itemKey) => {
+const handleDecreaseQuantity = (itemKey: any) => {
   setQuantities((prevQuantities) => ({
     ...prevQuantities,
     [itemKey]: Math.max(1, (prevQuantities[itemKey] || 1) - 1),
   }));
 };
 
-const handleIncreaseQuantity = (itemKey, limit) => {
+const handleIncreaseQuantity = (itemKey:any, limit:any) => {
   setQuantities((prevQuantities) => ({
     ...prevQuantities,
     [itemKey]: Math.min(limit, (prevQuantities[itemKey] || 1) + 1),
@@ -577,7 +580,7 @@ const handleIncreaseQuantity = (itemKey, limit) => {
                           //TODO: Fix mint for mint prices greater than zero.
                           action={() => {
                             mint(
-                            item.key, item.proof, itemQuantity, (utils.formatEther(item.condition.price._hex) * 1e18).toString()
+                            item.key, item.proof, itemQuantity, item.condition.price._hex
                             );
                           }}
                           isDisabled={buttonLoading}
