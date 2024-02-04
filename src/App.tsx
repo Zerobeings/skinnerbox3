@@ -73,12 +73,12 @@ export default function Home() {
   const root = window.document.documentElement;
   root.classList.add(theme);
   const address = useAddress();
-  const [quantity, setQuantity] = useState(1);
+  const [quantities, setQuantities] = useState({});
   const [totalSupply, setTotalSupply] = useState(0);
   const [nextTokenId, setNextTokenId] = useState(0);
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
   const [collectionImg, setCollectionImg] = useState("");
-  const ipfsGateway = "https://ipfs.io/ipfs/";
+  const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
@@ -93,7 +93,7 @@ export default function Home() {
       setTotalSupply(BigNumber.from(config.supply).toNumber());
     
       // Convert IPFS URL to HTTP URL
-      const ipfsGateway = "https://ipfs.io/ipfs/";
+      const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
       const ipfsHash = config.placeholder.split("ipfs://")[1];
       const jsonUrl = `${ipfsGateway}${ipfsHash}`;
     
@@ -415,6 +415,21 @@ export default function Home() {
   }
 };
 
+const handleDecreaseQuantity = (itemKey) => {
+  setQuantities((prevQuantities) => ({
+    ...prevQuantities,
+    [itemKey]: Math.max(1, (prevQuantities[itemKey] || 1) - 1),
+  }));
+};
+
+const handleIncreaseQuantity = (itemKey, limit) => {
+  setQuantities((prevQuantities) => ({
+    ...prevQuantities,
+    [itemKey]: Math.min(limit, (prevQuantities[itemKey] || 1) + 1),
+  }));
+};
+
+
 
   return (
     <div className="w-screen min-h-screen">
@@ -514,54 +529,36 @@ export default function Home() {
                     item.addresses.includes(address) || 
                     item.addresses.includes("Any")
                   )
-                  .map(item => (
+                  .map(item => {
+                    const itemQuantity = quantities[item.key] || 1;
+                    return (
                     <tr key={item.key}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {BigNumber.from(item.condition.price._hex).toString()} ETH
+                        {utils.formatEther(item.condition.price._hex)} ETH 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {BigNumber.from(item.condition.limit._hex).toString()}
                       </td>
                       <td className="whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
-                        <button
-                          onClick={() => {
-                            const value = quantity - 1;
-                            if (value > BigNumber.from(item.condition.limit._hex).toNumber()) {
-                              setQuantity(BigNumber.from(item.condition.limit._hex).toNumber());
-                            } else if (value < 1) {
-                              setQuantity(1);
-                            } else {
-                              setQuantity(value);
-                            }
-                          }}
-                              className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                          disabled={isSoldOut || quantity - 1 < 1}
-                        >
-                          -
-                        </button>
-                            <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
-                          {!isLoading && isSoldOut ? "Sold Out" : quantity}
-                        </p>
-                        <button
-                          onClick={() => {
-                            const value = quantity + 1;
-                            if (value > BigNumber.from(item.condition.limit._hex).toNumber()) {
-                              setQuantity(BigNumber.from(item.condition.limit._hex).toNumber());
-                            } else if (value < 1) {
-                              setQuantity(1);
-                            } else {
-                              setQuantity(value);
-                            }
-                          }}
-                          className={
-                            "flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                          }
-                          disabled={isSoldOut || quantity + 1 > BigNumber.from(item.condition.limit._hex).toNumber()}
-                        >
-                          +
-                        </button>
-                      </div>
+                        <div className="flex w-full px-2 border border-gray-400 rounded-lg h-11 dark:border-gray-800 md:w-full">
+                          <button 
+                            onClick={() => handleDecreaseQuantity(item.key)}
+                            className="flex items-center justify-center h-full px-2 text-2xl text-center rounded-l-md disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
+                            disabled={isSoldOut || itemQuantity <= 1} // Disable if sold out or quantity is already at minimum
+                          >
+                            -
+                          </button>
+                          <p className="flex items-center justify-center w-full h-full font-mono text-center dark:text-white lg:w-full">
+                            {!isLoading && isSoldOut ? "Sold Out" : itemQuantity}
+                          </p>
+                          <button
+                            onClick={() => handleIncreaseQuantity(item.key, BigNumber.from(item.condition.limit._hex).toNumber())}
+                            className="flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
+                            disabled={isSoldOut || itemQuantity >= BigNumber.from(item.condition.limit._hex).toNumber()} // Disable if sold out or quantity is already at limit
+                          >
+                            +
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <Web3Button
@@ -577,9 +574,10 @@ export default function Home() {
                             width: "10px"
                           }}
                           theme={theme}
+                          //TODO: Fix mint for mint prices greater than zero.
                           action={() => {
                             mint(
-                            item.key, item.proof, quantity, BigNumber.from(item.condition.price._hex)
+                            item.key, item.proof, itemQuantity, (utils.formatEther(item.condition.price._hex) * 1e18).toString()
                             );
                           }}
                           isDisabled={buttonLoading}
@@ -615,12 +613,13 @@ export default function Home() {
                               <span className="sr-only">Loading...</span>
                             </div>
                           ) : (
-                            item.name
+                            item.name || "Private Mint"
                           )}
                         </Web3Button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 }
               </tbody>
             </table>     

@@ -8,10 +8,10 @@ import { getGasless } from "./utils/getGasless";
 import {
   biconomyApiIdConst,
   biconomyApiKeyConst,
-  chainConst,
   relayerUrlConst,
   clientIdConst,
 } from "./consts/parameters";
+import { Sepolia } from "@thirdweb-dev/chains"; // Add desired chain here
 
 const container = document.getElementById("root");
 const root = createRoot(container!);
@@ -24,13 +24,11 @@ const biconomyApiId =
   urlParams.get("biconomyApiId") || biconomyApiIdConst || "";
 const sdkOptions = getGasless(relayerUrl, biconomyApiKey, biconomyApiId);
 
-const chain = (urlParams.get("chain") && urlParams.get("chain")?.startsWith("{")) ? JSON.parse(String(urlParams.get("chain"))) : urlParams.get("chain") || chainConst;
-
 const clientId = urlParams.get("clientId") || clientIdConst || "";
 
 root.render(
   <React.StrictMode>
-    <ThirdwebProvider activeChain={chain} sdkOptions={sdkOptions} clientId={clientId}>
+    <ThirdwebProvider activeChain={Sepolia} sdkOptions={sdkOptions} clientId={clientId}>
       <Toaster />
       <App />
     </ThirdwebProvider>
