@@ -578,7 +578,6 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                             width: "10px"
                           }}
                           theme={theme}
-                          //TODO: Fix mint for mint prices greater than zero.
                           action={() => {
                             mint(
                             item.key, item.proof, itemQuantity, ethers.BigNumber.from(item.condition.price._hex)
