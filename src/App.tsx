@@ -397,11 +397,7 @@ export default function Home() {
     console.log(parseInt(cost._hex, 16).toString(10))
     console.log("Minting NFT");
     if (quantity !== undefined && contractQuery.contract !== undefined) {
-      await contractQuery.contract.call("mint", [auth, count,
-        {
-          value: parseInt(cost._hex, 16).toString(10),
-        }
-    ]).then((result) => {
+      await contractQuery.contract.call("mint", [auth, count], {value: (count * parseInt(cost._hex, 16).toString(10))}).then((result) => {
         console.log("Minted:", result);
           toast({
             title: "Successfully minted",
@@ -411,6 +407,7 @@ export default function Home() {
             className: "bg-green-500",
           });
       }).catch((error) => {
+        console.error("Error minting:", error);
         const reasonRegex = /Reason:\s+(.+)/;
         const match = error.message.match(reasonRegex);
         const reason = match ? match[1].trim() : 'Unknown Error';
