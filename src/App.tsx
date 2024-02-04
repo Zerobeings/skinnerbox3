@@ -391,10 +391,11 @@ export default function Home() {
       "key": key,
       "proof": proof,
     };
-    const count = parseInt(BigNumber.from(quantity)._hex, 16).toString(10);
+    const count = BigNumber.from(quantity).toNumber();
     console.log("Minting NFT");
     if (quantity !== undefined && contractQuery.contract !== undefined) {
-      await contractQuery.contract.call("mint", [auth, count], {value: (count * parseInt(cost._hex, 16).toString(10))}).then((result) => {
+      const totalCost = BigNumber.from(cost._hex).mul(count); 
+      await contractQuery.contract.call("mint", [auth, count], {value: totalCost}).then((result) => {
         console.log("Minted:", result);
           toast({
             title: "Successfully minted",
