@@ -9,7 +9,7 @@ import {
   useNFT,
   Web3Button,
 } from "@thirdweb-dev/react";
-import { BigNumber, utils } from "ethers";
+import { BigNumber, utils, ethers } from "ethers";
 import { useMemo, useState, useEffect } from "react";
 import { HeadingImage } from "./components/HeadingImage";
 import { PoweredBy } from "./components/PoweredBy";
@@ -580,7 +580,10 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                           //TODO: Fix mint for mint prices greater than zero.
                           action={() => {
                             mint(
-                            item.key, item.proof, itemQuantity, item.condition.price._hex
+                            item.key, 
+                            item.proof, 
+                            itemQuantity, 
+                            ethers.utils.parseEther(utils.formatEther(item.condition.price._hex))
                             );
                           }}
                           isDisabled={buttonLoading}
