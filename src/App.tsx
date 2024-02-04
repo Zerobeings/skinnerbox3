@@ -391,10 +391,17 @@ export default function Home() {
       "key": key,
       "proof": proof,
     };
-    const count = BigNumber.from(quantity);
+    const count = parseInt(BigNumber.from(quantity)._hex, 16).toString(10);
+    console.log("Auth:", auth);
+    console.log("Count:", count);
+    console.log(parseInt(cost._hex, 16).toString(10))
     console.log("Minting NFT");
     if (quantity !== undefined && contractQuery.contract !== undefined) {
-      await contractQuery.contract.call("mint", [auth, count]).then((result) => {
+      await contractQuery.contract.call("mint", [auth, count,
+        {
+          value: parseInt(cost._hex, 16).toString(10),
+        }
+    ]).then((result) => {
         console.log("Minted:", result);
           toast({
             title: "Successfully minted",
@@ -580,12 +587,9 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                           //TODO: Fix mint for mint prices greater than zero.
                           action={() => {
                             mint(
-                            item.key, 
-                            item.proof, 
-                            itemQuantity, 
-                            ethers.utils.parseEther(utils.formatEther(item.condition.price._hex))
+                            item.key, item.proof, itemQuantity, ethers.BigNumber.from(item.condition.price._hex)
                             );
-                          }}
+                          }}         
                           isDisabled={buttonLoading}
                           onError={(err) => {
                             console.error(err);
