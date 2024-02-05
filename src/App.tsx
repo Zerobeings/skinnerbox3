@@ -83,6 +83,7 @@ export default function Home() {
   const [collectionImg, setCollectionImg] = useState("");
   const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
+  const [uApproved, setUApproved] = useState<ApprovedItem[]>([]);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
@@ -225,8 +226,14 @@ export default function Home() {
           };
           }));
   
-          // console.log("Approvals:", approvals);
-          setApproved(approvals);
+          const uniqueApprovals = approvals.reduce((acc, current) => {
+            if (!acc.find((item:any) => item.key === current.key)) {
+              acc.push(current);
+            }
+            return acc;
+          }, []);
+  
+          setUApproved(uniqueApprovals);
         } catch (error) {
           console.error("Error in fetching approvals:", error);
         }
@@ -247,48 +254,34 @@ export default function Home() {
   // console.log("approved", approved);
 
   useEffect(() => {
-    if (approved && address) {
+    if (uApproved && address) {
       console.log("Generating proof for address:", address);
       try {
-        // Check if proof is already generated for all items
-        const isProofGenerated = approved.every(item => item.addresses === "Any" || item.addresses === "Null" || item.proof);
+        const updatedApproved = uApproved.map(item => {
+          // Skip generating proof for items that don't require it
+          if (item.addresses === "Any" || item.addresses === "Null") {
+            return { ...item, proof: [] };
+          }
   
-        if (!isProofGenerated) {
-          // Generate leaf nodes from the approved invites
-          const leafNodes = approved.flatMap(addr => {
-            if (addr.addresses === "Any" || addr.addresses === "Null") {
-              return [];
-            }
-            
-            if (Array.isArray(addr.addresses)) {
-              return addr.addresses.map(address => keccak256(address.toLowerCase()));
-            }
-            
-            return [keccak256(addr.addresses.toLowerCase())];
-          });
+          // Generate leaf nodes for the item's addresses
+          const leafNodes = item.addresses.map((addr:any) => utils.keccak256(utils.solidityPack(["address"], [addr.toLowerCase()])));
   
-          const merkleTree = new MerkleTree(leafNodes, keccak256, { sortPairs: true });
-          const hashedAddress = keccak256(address.toLowerCase());
+          // Create a new Merkle tree for this item
+          const merkleTree = new MerkleTree(leafNodes, utils.keccak256, { sortPairs: true });
+  
+          // Generate a proof for the current user's address
+          const hashedAddress = utils.keccak256(utils.solidityPack(["address"], [address.toLowerCase()]));
           const merkleProof = merkleTree.getHexProof(hashedAddress);
   
-          // Update the approved array with the proof
-          const updatedApproved = approved.map(item => {
-            if (item.addresses !== "Any" && item.addresses !== "Null" && !item.proof) {
-              return { ...item, proof: merkleProof };
-            } else {
-              return { ...item, proof: [] };
-            }
-            return item;
-          });
+          return { ...item, proof: merkleProof };
+        });
   
-          setApproved(updatedApproved);
-        }
-        
+        setApproved(updatedApproved);
       } catch (error) {
-        console.error("Error fetching proof:", error);
+        console.error("Error generating Merkle proof:", error);
       }
     }
-  }, [approved, address]);
+  }, [uApproved, address]);
   
 
 // console.log("proof", approved);
@@ -534,7 +527,7 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                     item.addresses.includes(address) || 
                     item.addresses.includes("Any")
                   )
-                  .map(item => {
+                  .map((item, index) => {
                     const itemQuantity = quantities[item.key] || 1;
                     return (
                     <tr key={item.key}>
