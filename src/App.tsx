@@ -515,7 +515,8 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                 {approved
                   .filter(item => 
                     item.addresses.includes(address) || 
-                    item.addresses.includes("Any")
+                    item.addresses.includes("Any") ||
+                    item.addresses.includes(address && address.toLowerCase())
                   )
                   .map((item, index) => {
                     const itemQuantity = quantities[item.key] || 1;
