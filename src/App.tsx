@@ -81,7 +81,7 @@ export default function Home() {
   const [nextTokenId, setNextTokenId] = useState(0);
   const [newInvites, setNewInvites] = useState<Invite[]>([]);
   const [collectionImg, setCollectionImg] = useState("");
-  const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
+  const ipfsGateway = "https://nftstorage.link/ipfs/";
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const [uApproved, setUApproved] = useState<ApprovedItem[]>([]);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -93,11 +93,10 @@ export default function Home() {
     // Fetch total supply and image
     contractQuery.contract.call("config").then(async (configPromise) => {
       const config = await configPromise; // Await the promise to get the actual config object
-  
       setTotalSupply(BigNumber.from(config.supply).toNumber());
-    
+      
       // Convert IPFS URL to HTTP URL
-      const ipfsGateway = "https://gateway.pinata.cloud/ipfs/";
+      const ipfsGateway = "https://nftstorage.link/ipfs/";
       const ipfsHash = config.placeholder.split("ipfs://")[1];
       const jsonUrl = `${ipfsGateway}${ipfsHash}`;
     
@@ -122,9 +121,6 @@ export default function Home() {
     }).catch(console.error);
   
   }, [contractQuery.contract]);
-
-  // console.log("totalSupply", totalSupply);
-  // console.log("nextTokenId", nextTokenId);
 
   // fetch invites from f0 contract
   const invites = useContractEvents(
@@ -178,10 +174,9 @@ export default function Home() {
     }
   }, [contractQuery.contract, invites.data]);
   
-  //  console.log("newInvites", newInvites);
+ //console.log("newInvites", newInvites);
  
 
-  //TODO: add factoria proof of invite fetch and generate table with mint/claim conditions
   useEffect(() => {
     if (address != null && newInvites != null) {
       const checkApprovedInvites = async () => {
@@ -232,7 +227,7 @@ export default function Home() {
             }
             return acc;
           }, []);
-  
+          
           setUApproved(uniqueApprovals);
         } catch (error) {
           console.error("Error in fetching approvals:", error);
@@ -284,9 +279,6 @@ export default function Home() {
   }, [uApproved, address]);
   
 
-// console.log("proof", approved);
-
-
   const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
 
@@ -304,12 +296,10 @@ export default function Home() {
   const isLoading = useMemo(() => {
     return (
       !unclaimedSupply ||
-      !claimedSupply ||
       !contractQuery.contract
     );
   }, [
     contractQuery.contract,
-    claimedSupply,
     unclaimedSupply,
   ]);
 
@@ -461,7 +451,7 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
               ) : isOpenEdition ? null : (
                 <p>
                   <span className="text-lg font-bold tracking-wider text-gray-500 xs:text-xl lg:text-2xl">
-                    {nextTokenId - 1}
+                    {nextTokenId !== 0 ? nextTokenId - 1 : 0}
                   </span>{" "}
                   <span className="text-lg font-bold tracking-wider xs:text-xl lg:text-2xl">
                     / {totalSupply} minted
