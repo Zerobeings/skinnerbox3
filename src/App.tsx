@@ -84,6 +84,7 @@ export default function Home() {
   const ipfsGateway = "https://nftstorage.link/ipfs/";
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const [uApproved, setUApproved] = useState<ApprovedItem[]>([]);
+  const [minting, setMinting] = useState(false);
   const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
@@ -370,6 +371,7 @@ export default function Home() {
 
   //mint function for each invite
   const mint = async (key:any, proof:any, quantity:any, cost:any) => {
+    setMinting(true);
     const auth = {
       "key": key,
       "proof": proof,
@@ -387,6 +389,7 @@ export default function Home() {
             duration: 5000,
             className: "bg-green-500",
           });
+          setMinting(false);
       }).catch((error) => {
         console.error("Error minting:", error);
         const reasonRegex = /Reason:\s+(.+)/;
@@ -399,6 +402,7 @@ export default function Home() {
           duration: 9000,
           variant: "destructive",
         });
+        setMinting(false);
       });
   }
 };
