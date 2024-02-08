@@ -86,7 +86,6 @@ export default function Home() {
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const [uApproved, setUApproved] = useState<ApprovedItem[]>([]);
   const [minting, setMinting] = useState(false);
-  const publicInviteKey = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   //for factoria configuration fetch
   useEffect(() => {
@@ -617,13 +616,13 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
           </div>
         </div>
         {minting && (
-        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-black p-5 border border-gray-400 w-2/5 text-center shadow-md rounded-2xl">
-            <div className="mb-5">You are minting something amazing!</div>
-            <GridLoader color="#7C3AED" size={15} margin={2} />
+          <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center">
+            <div className="bg-black p-5 border border-gray-400 w-2/5 text-center shadow-md rounded-2xl">
+              <div className="mb-5">You are minting something amazing!</div>
+              <GridLoader color="#7C3AED" size={15} margin={2} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
       <GitHub />
       <PoweredBy />

@@ -121,7 +121,7 @@ const handleError = (message: string): string => {
     }
     return error.message;
   } else {
-    return message;
+    return `${Errors[Number(message)].split('//')[1].trim()}`;
   }
 };
 
