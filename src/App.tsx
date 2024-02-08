@@ -279,9 +279,8 @@ export default function Home() {
     }
   }, [uApproved, address]);
   
-
-  const unclaimedSupply = totalSupply - nextTokenId - 1;
   const claimedSupply = nextTokenId - 1;
+  const unclaimedSupply = totalSupply - claimedSupply;
 
   const numberClaimed = useMemo(() => {
     return BigNumber.from(claimedSupply || 0).toString();
@@ -296,12 +295,10 @@ export default function Home() {
 
   const isLoading = useMemo(() => {
     return (
-      !unclaimedSupply ||
       !contractQuery.contract
     );
   }, [
     contractQuery.contract,
-    unclaimedSupply,
   ]);
 
   const buttonLoading = useMemo(
@@ -547,7 +544,7 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
                           <button
                             onClick={() => handleIncreaseQuantity(item.key, BigNumber.from(item.condition.limit._hex).toNumber())}
                             className="flex h-full items-center justify-center rounded-r-md px-2 text-center text-2xl disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:disabled:text-gray-600"
-                            disabled={isSoldOut || itemQuantity >= BigNumber.from(item.condition.limit._hex).toNumber()} // Disable if sold out or quantity is already at limit
+                            disabled={isSoldOut || itemQuantity >= BigNumber.from(item.condition.limit._hex).toNumber() || itemQuantity === unclaimedSupply} // Disable if sold out or quantity is already at limit
                           >
                             +
                           </button>
