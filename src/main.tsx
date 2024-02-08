@@ -11,7 +11,7 @@ import {
   relayerUrlConst,
   clientIdConst,
 } from "./consts/parameters";
-import { Sepolia } from "@thirdweb-dev/chains"; // Add desired chain here
+import { Sepolia } from "@thirdweb-dev/chains"; // Add desired chain here Ethereum or Sepolia
 
 const container = document.getElementById("root");
 const root = createRoot(container!);

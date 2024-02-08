@@ -30,6 +30,7 @@ import { keccak256 } from 'ethers/lib/utils';
 import { MerkleTree } from 'merkletreejs';
 import handleError from "./utils/handleError";
 import { GridLoader } from "react-spinners";
+import { NFTCard } from "./components/NFTCard";
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -65,6 +66,10 @@ interface ApprovedItem {
 
 interface Quantities {
   [key: string]: number;
+}
+
+interface contractAddress {
+  contract: any;
 }
 
 export default function Home() {
@@ -624,6 +629,8 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
           </div>
         )}
       </div>
+        <h1 className="text-center text-[#e9e9e9] text-3xl font-bold mt-5 mb-5">Your Minted NFTs</h1>
+        <NFTCard />
       <GitHub />
       <PoweredBy />
     </div>

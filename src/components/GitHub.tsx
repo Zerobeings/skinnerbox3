@@ -4,7 +4,7 @@ export const GitHub: React.FC = () => {
     <div onClick={() => {
       window.open("https://github.com/Zerobeings/skinnerbox3", "_blank");
       }}
-      className="spacing-1 absolute bottom-4 right-20 flex cursor-pointer items-center"
+      className="spacing-1 absolute top-4 left-20 flex cursor-pointer items-center"
     >
         <svg
           xmlns="http://www.w3.org/2000/svg"
