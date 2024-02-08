@@ -29,6 +29,7 @@ import { create } from 'multiformats/hashes/digest';
 import { keccak256 } from 'ethers/lib/utils';
 import { MerkleTree } from 'merkletreejs';
 import handleError from "./utils/handleError";
+import { GridLoader } from "react-spinners";
 
 const urlParams = new URL(window.location.toString()).searchParams;
 const contractAddress = urlParams.get("contract") || contractConst || "";
@@ -615,6 +616,14 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
             )}
           </div>
         </div>
+        {minting && (
+        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-black p-5 border border-gray-400 w-2/5 text-center shadow-md rounded-2xl">
+            <div className="mb-5">You are minting something amazing!</div>
+            <GridLoader color="#7C3AED" size={15} margin={2} />
+          </div>
+        </div>
+      )}
       </div>
       <GitHub />
       <PoweredBy />
