@@ -11,14 +11,13 @@ interface Attribute {
   value: any;
 }
 
-export function NFTCard() {
+export function NFTCard({onMintNFTs}: {onMintNFTs: boolean}) {
     const address = useAddress();
     const [NFTs, setNFTs] = useState<any[]>([])
     const [nftsLoading, setNftsLoading] = useState<boolean>(true);
     const [pageKey, setPageKey] = useState('');
     const [hasMoreNFTs, setHasMoreNFTs] = useState(true);
     const [atBottom, setAtBottom] = useState<boolean>(false); 
-    console.log("NFTs", NFTs);
 
     useEffect(() => {
         setNftsLoading(true);
@@ -44,6 +43,36 @@ export function NFTCard() {
             })();
         }
       },[address, API_KEY, contractConst]);
+
+
+      const fetchNFTs = async () => {
+        setNftsLoading(true);
+        if (address !== undefined) {
+          let nfts;
+          const baseURL = `https://${ALCH_NET}.g.alchemy.com/nft/v2/${API_KEY}/getNFTs/`;
+          const pageCount = 100;
+          var pageKey = '';
+          
+          const fetchURL = `${baseURL}?owner=${address}&contractAddresses[]=${contractConst}&withMetadata=true&pageKey=${pageKey}&pageSize=${pageCount}`;
+          await fetch(fetchURL, {
+            method: "GET",
+          }).then((data) => data.json()).then((nfts) => {
+            setNFTs(nfts.ownedNfts);
+            setPageKey(nfts.pageKey);
+            if(!nfts.pageKey || nfts.ownedNfts.length === 0) {
+              setHasMoreNFTs(false);
+            }
+            setNftsLoading(false);
+          });
+        }
+      }
+
+      useEffect (() => {
+        if (onMintNFTs) {
+          fetchNFTs
+        }
+      }
+      ,[fetchNFTs]);
     
       const loadMoreNFTs = () => {
         if(pageKey === '' || !hasMoreNFTs) {

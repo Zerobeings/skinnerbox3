@@ -91,6 +91,7 @@ export default function Home() {
   const [approved, setApproved] = useState<ApprovedItem[]>([]);
   const [uApproved, setUApproved] = useState<ApprovedItem[]>([]);
   const [minting, setMinting] = useState(false);
+  const [onMintNFTs, setOnMintNFTs] = useState<boolean>(false);
 
   //for factoria configuration fetch
   useEffect(() => {
@@ -392,6 +393,7 @@ export default function Home() {
             className: "bg-green-500",
           });
           setMinting(false);
+          setOnMintNFTs(true);
       }).catch((error) => {
         console.error("Error minting:", error);
         const reasonRegex = /Reason:\s+(.+)/;
@@ -630,7 +632,7 @@ const handleIncreaseQuantity = (itemKey:any, limit:any) => {
         )}
       </div>
         <h1 className="text-center text-[#e9e9e9] text-3xl font-bold mt-5 mb-5">Your Minted NFTs</h1>
-        <NFTCard />
+        <NFTCard onMintNFTs={onMintNFTs}/>
       <GitHub />
       <PoweredBy />
     </div>
